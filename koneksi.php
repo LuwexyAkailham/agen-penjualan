@@ -1,14 +1,13 @@
 <?php
-// Database connection settings
-$servername = "localhost"; // Update this if necessary
-$username = "root";        // Update this if necessary
-$password = "";            // Update this if necessary
-$dbname = "agenpenjualan_db"; // Update this if necessary
+$servername = "localhost"; // Ganti dengan server database Anda
+$username = "root"; // Ganti dengan username database Anda
+$password = ""; // Ganti dengan password database Anda
+$dbname = "agenpenjualan_db"; // Ganti dengan nama database Anda
 
-// Create connection
+// Membuat koneksi
 $conn = new mysqli($servername, $username, $password, $dbname);
 
-// Check connection
+// Memeriksa koneksi
 if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }

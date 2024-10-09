@@ -1,24 +1,10 @@
 <?php
+session_start(); // Memulai sesi
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 // Include the database connection file
 include '../koneksi.php';
-
-// Handle form submission for adding a new item
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_item'])) {
-    $deskripsi = $_POST['deskripsi'];
-    $harga = $_POST['harga'];
-    $lokasi = $_POST['lokasi'];
-    $image_url = $_POST['image_url'];
-    $kategori = isset($_POST['kategori']) ? $_POST['kategori'] : ''; // Check if 'kategori' exists
-
-    // Prepare and execute insert statement
-    $stmt = $conn->prepare("INSERT INTO items (deskripsi, harga, lokasi, image_url, kategori) VALUES (?, ?, ?, ?, ?)");
-    $stmt->bind_param("sssss", $deskripsi, $harga, $lokasi, $image_url, $kategori);
-    $stmt->execute();
-    $stmt->close();
-}
 
 // Handle deletion of an item
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['delete_item'])) {
@@ -26,14 +12,39 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['delete_item'])) {
 
     // Prepare and execute delete statement
     $stmt = $conn->prepare("DELETE FROM items WHERE id = ?");
-    $stmt->bind_param("i", $item_id);
-    $stmt->execute();
-    $stmt->close();
+    if ($stmt) {
+        $stmt->bind_param("i", $item_id);
+        $stmt->execute();
+        $stmt->close();
+    } else {
+        echo "Error: " . $conn->error;
+    }
 }
 
-// Fetch items from database
-$sql = "SELECT * FROM items";
-$result = $conn->query($sql);
+// Get the selected category if it exists
+$selected_category = isset($_GET['kategori']) ? $_GET['kategori'] : '';
+
+// Fetch items from the database based on the selected category
+if ($selected_category) {
+    $stmt = $conn->prepare("SELECT * FROM items WHERE kategori = ?");
+    if ($stmt) {
+        $stmt->bind_param("s", $selected_category);
+    } else {
+        echo "Error: " . $conn->error;
+    }
+} else {
+    $stmt = $conn->prepare("SELECT * FROM items");
+    if (!$stmt) {
+        echo "Error: " . $conn->error;
+    }
+}
+
+if ($stmt) {
+    $stmt->execute();
+    $result = $stmt->get_result();
+} else {
+    $result = null;
+}
 ?>
 
 <!DOCTYPE html>
@@ -43,98 +54,32 @@ $result = $conn->query($sql);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pilihan Hari Ini</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" rel="stylesheet"/>
-    <link rel="stylesheet" href="style.css"> <!-- Link to CSS file -->
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-        }
-        .container {
-            display: flex;
-            flex-direction: row;
-            margin: 20px;
-        }
-        .sidebar {
-            width: 25%;
-            padding: 10px;
-            background-color: #f8f9fa;
-            border-right: 1px solid #ccc;
-        }
-        .sidebar h3 {
-            margin-top: 0;
-        }
-        .main-content {
-            width: 75%;
-            padding: 10px;
-        }
-        .add-item-form {
-            margin-bottom: 20px;
-        }
-        .row {
-            display: flex;
-            flex-wrap: wrap;
-        }
-        .col-md-4 {
-            flex: 1 0 30%;
-            margin: 10px;
-        }
-        .card {
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }
-        .card-img-top {
-            max-width: 100%;
-            height: auto;
-        }
-        .card-body {
-            padding: 10px;
-        }
-        .custom-select {
-            position: relative;
-            display: inline-block;
-            width: 100%;
-        }
-        .custom-select select {
-            display: none; /* Hide the original select */
-        }
-        .select-selected {
-            background-color: #f8f9fa;
-            padding: 10px;
-            border: 1px solid #ccc;
-            cursor: pointer;
-        }
-        .select-items {
-            position: absolute;
-            background-color: #f8f9fa;
-            border: 1px solid #ccc;
-            z-index: 99;
-            display: none;
-        }
-        .select-items div {
-            padding: 10px;
-            cursor: pointer;
-        }
-        .select-items div:hover {
-            background-color: #ddd;
-        }
-        .icon {
-            margin-right: 10px;
-        }
-    </style>
+    <link rel="stylesheet" href="styles.css"> <!-- Link to CSS file -->
 </head>
 <body>
     <div class="container mt-4">
         <div class="sidebar">
+            <div class="profile">
+                <h3>Profil</h3>
+                <p>Nama: 
+                <?php 
+                if (isset($_SESSION['username'])) {
+                    echo htmlspecialchars($_SESSION['username']);
+                } else {
+                    echo 'Guest';
+                }
+                ?>
+                </p>
+                <a href="../profile/edit_profile.php"><button>Edit Profil</button></a>
+                <a href="logout.php"><button>Logout</button></a>
+            </div>
             <h3>Kategori</h3>
             <ul>
-                <li><a href="#"><i class="fas fa-tv"></i> Elektronik</a></li>
-                <li><a href="#"><i class="fas fa-gamepad"></i> Akun Game</a></li>
-                <li><a href="#"><i class="fas fa-car"></i> Mobil & Motor</a></li>
-                <li><a href="#"><i class="fas fa-mobile-alt"></i> Gadget</a></li>
+                <li><button class="btn-12" onclick="window.location.href='index.php'"><span>All Items</span></button></li>
+                <li><button class="btn-12" onclick="window.location.href='index.php?kategori=Elektronik'"><span>Elektronik</span></button></li>
+                <li><button class="btn-12" onclick="window.location.href='index.php?kategori=Akun Game'"><span>Akun Game</span></button></li>
+                <li><button class="btn-12" onclick="window.location.href='index.php?kategori=Kendaraan'"><span>Kendaraan</span></button></li>
+                <li><button class="btn-12" onclick="window.location.href='index.php?kategori=Gadget'"><span>Gadget</span></button></li>
             </ul>
         </div>
         <div class="main-content">
@@ -146,91 +91,131 @@ $result = $conn->query($sql);
                 </div>
             </div>
 
-            <!-- Form to add a new item -->
-            <div class="add-item-form">
-                <h2>Tambah Item</h2>
-                <form method="POST" action="">
-                    <input type="text" name="deskripsi" placeholder="Deskripsi" required>
-                    <input type="text" name="harga" placeholder="Harga" required>
-                    <input type="text" name="lokasi" placeholder="Lokasi" required>
-                    <input type="text" name="image_url" placeholder="Image URL" required>
-                    
-                    <!-- Custom dropdown for category -->
-                    <div class="custom-select">
-                        <div class="select-selected">Pilih Kategori</div>
-                        <div class="select-items">
-                            <div data-value="Elektronik">
-                                <i class="fas fa-plug icon"></i> Elektronik
-                            </div>
-                            <div data-value="Akun Game">
-                                <i class="fas fa-gamepad icon"></i> Akun Game
-                            </div>
-                            <div data-value="Mobil & Motor">
-                                <i class="fas fa-car icon"></i> Mobil & Motor
-                            </div>
-                            <div data-value="Gadget">
-                                <i class="fas fa-mobile-alt icon"></i> Gadget
-                            </div>
-                        </div>
-                        <input type="hidden" name="kategori" id="kategori">
-                    </div>
+            <!-- Tambahkan tombol "Tambah Item" jika user adalah admin -->
+            <?php if (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'admin') { ?>
+                <a href="../items/tambah.php" class="add-item-btn">
+                    <button class="button">Tambah Item</button>
+                </a>
+            <?php } ?>
 
-                    <button type="submit" name="add_item">Tambah Item</button>
-                </form>
-            </div>
-
+            <!-- Display items -->
             <div class="row">
                 <?php
-                if ($result->num_rows > 0) {
-                    while ($row = $result->fetch_assoc()) {
-                        echo '<div class="col-md-4 mb-4">';
-                        echo '<div class="card">';
-                        echo '<img alt="' . htmlspecialchars($row["deskripsi"]) . '" class="card-img-top" height="400" src="' . htmlspecialchars($row["image_url"]) . '" width="600"/>';
-                        echo '<div class="card-body">';
-                        echo '<h5 class="card-title">' . htmlspecialchars($row["harga"]) . '</h5>';
-                        echo '<p class="card-text">' . htmlspecialchars($row["deskripsi"]) . '</p>';
-                        echo '<p class="location">' . htmlspecialchars($row["lokasi"]) . '</p>';
-                        
-                        // Form to delete an item
-                        echo '<form method="POST" action="" style="display:inline;">';
-                        echo '<input type="hidden" name="item_id" value="' . $row["id"] . '">';
-                        echo '<button type="submit" name="delete_item" onclick="return confirm(\'Are you sure you want to delete this item?\');">Delete</button>';
-                        echo '</form>';
+                if ($result && $result->num_rows > 0) {
+                    while ($row = $result->fetch_assoc()) { ?>
+                        <div class="col-md-4 mb-4">
+                            <div class="card">
+                                <img alt="<?php echo htmlspecialchars($row["deskripsi"]); ?>" class="card-img-top" height="400" src="<?php echo htmlspecialchars($row["image_url"]); ?>" width="600"/>
+                                <div class="card-body">
+                                    <h5 class="card-title"><?php echo htmlspecialchars($row["harga"]); ?></h5>
+                                    <p class="card-text"><?php echo htmlspecialchars($row["deskripsi"]); ?></p>
+                                    <p class="location"><?php echo htmlspecialchars($row["lokasi"]); ?></p>
 
-                        echo '</div></div></div>';
-                    }
-                } else {
-                    echo "<p>No items found</p>";
+                                    <?php 
+                                    // Jika user adalah admin, tampilkan tombol Edit dan Delete
+                                    if (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'admin') { ?>
+                                        <form method="POST" action="" style="display:inline;">
+                                            <input type="hidden" name="item_id" value="<?php echo $row['id']; ?>">
+                                            <button class="button" type="submit" name="delete_item" onclick="return confirm('Are you sure you want to delete this item?');">Delete</button>
+                                        </form>
+                                        
+                                        <form method="GET" action="../items/edit.php" style="display:inline;">
+                                            <input type="hidden" name="item_id" value="<?php echo $row['id']; ?>">
+                                            <button class="button" type="submit">Edit</button>
+                                        </form>
+                                    <?php 
+                                    } else { 
+                                        // Jika user adalah user biasa, tampilkan tombol Beli dan Chat
+                                    ?>
+                                        <form method="POST" action="../items/beli.php" style="display:inline;">
+                                            <input type="hidden" name="item_id" value="<?php echo $row['id']; ?>">
+                                            <button class="button" type="submit">Beli</button>
+                                        </form>
+                                        <button class="button" onclick="openChat('<?php echo $row['id']; ?>')">Chat</button>
+                                    <?php } ?>
+                                </div>
+                            </div>
+                        </div>
+                    <?php } 
+                } else { 
+                    echo "<p>No items found</p>"; 
                 }
+
+                // Pastikan untuk hanya menutup statement jika query berhasil
+                if ($stmt) {
+                    $stmt->close();
+                }
+
+                // Menutup koneksi database
                 $conn->close();
                 ?>
             </div>
         </div>
     </div>
 
+    <!-- Chat Container -->
+    <div class="chat-container" style="display:none;">
+        <div class="chat-header">
+            <img alt="Profile picture of Lexus Pro" src="https://placehold.co/30x30"/>
+            <div class="title">Chat</div>
+            <div class="icons">
+                <i class="fas fa-phone"></i>
+                <i class="fas fa-video"></i>
+            </div>
+        </div>
+        <div class="chat-body" id="chat-body">
+            <!-- Chat messages will be loaded here dynamically -->
+        </div>
+        <div class="chat-footer">
+            <form id="chat-form">
+                <div class="input-container">
+                    <input type="text" id="message" placeholder="Aa" required/>
+                    <button type="submit">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
     <script>
-        // Custom select script
-        document.addEventListener("DOMContentLoaded", function() {
-            const selected = document.querySelector(".select-selected");
-            const items = document.querySelector(".select-items");
-            const kategoriInput = document.getElementById("kategori");
-
-            selected.addEventListener("click", function() {
-                items.style.display = items.style.display === "block" ? "none" : "block";
-            });
-
-            items.querySelectorAll("div").forEach(item => {
-                item.addEventListener("click", function() {
-                    selected.textContent = this.textContent;
-                    kategoriInput.value = this.getAttribute("data-value");
-                    items.style.display = "none";
+        $(document).ready(function() {
+            // Load chat messages
+            function loadMessages(itemId) {
+                $.ajax({
+                    url: 'load_chat.php?item_id=' + itemId,
+                    method: 'GET',
+                    success: function(data) {
+                        $('#chat-body').html('');
+                        data.forEach(msg => {
+                            $('#chat-body').append('<div>' + msg.username + ': ' + msg.message + '</div>');
+                        });
+                    },
+                    error: function(error) {
+                        console.error(error);
+                    }
                 });
-            });
+            }
 
-            document.addEventListener("click", function(e) {
-                if (!e.target.matches('.custom-select, .custom-select *')) {
-                    items.style.display = "none";
-                }
+            // Open chat function
+            window.openChat = function(itemId) {
+                $('.chat-container').show();
+                $('#message').val(''); // Clear input field
+                loadMessages(itemId); // Load messages for the item
+            };
+
+            // Submit chat form
+            $('#chat-form').submit(function(e) {
+                e.preventDefault();
+                const message = $('#message').val();
+                // Optionally, include item_id when sending a message
+                const itemId = $('#chat-body').data('itemId');
+
+                $.post('send_message.php', { message: message, item_id: itemId }, function(response) {
+                    $('#message').val(''); // Clear input field after sending
+                    loadMessages(itemId); // Reload messages after sending
+                });
             });
         });
     </script>
