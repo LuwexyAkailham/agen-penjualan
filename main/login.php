@@ -1,74 +1,122 @@
 <?php
-session_start(); // Memulai sesi
-include '../koneksi.php'; // Menyertakan koneksi database
+session_start();
+include '../koneksi.php';
 
-// Cek jika formulir disubmit
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    // Ambil nilai dari formulir
-    $username = $_POST['username']; // Ubah 'email' menjadi 'username'
-    $password = $_POST['password'];
+    // Determine if it's a login or sign-up action
+    $action = $_POST['action'];
 
-    // Siapkan pernyataan SQL untuk mencegah SQL injection
-    $stmt = $conn->prepare("SELECT * FROM users WHERE username = ? LIMIT 1"); // Ubah 'email' menjadi 'username'
-    $stmt->bind_param("s", $username);
-    $stmt->execute();
-    $result = $stmt->get_result();
+    // Login Action
+    if ($action == 'login') {
+        $username = $_POST['username'];
+        $password = $_POST['password'];
 
-    // Cek apakah pengguna ada dengan username yang diberikan
-    if ($result->num_rows > 0) {
-        $user = $result->fetch_assoc();
+        $stmt = $conn->prepare("SELECT * FROM users WHERE username = ? LIMIT 1");
+        $stmt->bind_param("s", $username);
+        $stmt->execute();
+        $result = $stmt->get_result();
 
-        // Verifikasi kata sandi
-        if (password_verify($password, $user['password'])) {
-            // Set variabel sesi
-            $_SESSION['user_id'] = $user['id'];
-            $_SESSION['username'] = $user['name'];
-            $_SESSION['user_role'] = $user['user_role']; // Simpan peran pengguna
-            // Redirect ke index.php
+        if ($result->num_rows > 0) {
+            $user = $result->fetch_assoc();
+
+            if (password_verify($password, $user['password'])) {
+                // Store user data in session
+                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['username'] = $user['name'];
+                $_SESSION['user_role'] = $user['user_role'];
+                header("Location: index.php");
+                exit();
+            } else {
+                $error_message = "Invalid password. Please try again.";
+            }
+        } else {
+            $error_message = "No user found with this username.";
+        }
+    }
+
+    // Signup Action
+    if ($action == 'signup') {
+        $name = $_POST['username'];
+        $alamat = $_POST['alamat'];
+        $nomer = $_POST['nomor_telepon'];
+        $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
+
+        // Correct SQL query and bind the parameters
+        $stmt = $conn->prepare("INSERT INTO users (username, password, alamat, nomor_telepon, user_role) VALUES (?, ?, ?, ?, 'user')");
+        $stmt->bind_param("ssss", $name, $password, $alamat, $nomer);
+
+        if ($stmt->execute()) {
+            $_SESSION['user_id'] = $conn->insert_id;
+            $_SESSION['username'] = $name;
+            $_SESSION['user_role'] = 'user';
             header("Location: index.php");
             exit();
         } else {
-            $error_message = "Kata sandi tidak valid. Silakan coba lagi.";
+            $error_message = "Error during sign-up. Please try again.";
         }
-    } else {
-        $error_message = "Pengguna dengan username tersebut tidak ditemukan.";
     }
 }
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="../items/style.css"> <!-- Link to CSS file -->
+    <link rel="stylesheet" href="style.css"> <!-- Link to your CSS file -->
+    <style>
+        /* Add the CSS provided in the design */
+        .wrapper { display: flex; justify-content: center; align-items: center; height: 100vh; }
+        .card-switch { position: relative; }
+        .switch { position: relative; width: 300px; height: 200px; display: block; }
+        .slider, .card-side, .flip-card__inner { transition: 0.4s ease; }
+        .flip-card__inner { position: absolute; width: 100%; height: 100%; display: flex; }
+        .flip-card__front, .flip-card__back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; padding: 20px; }
+        .flip-card__front { background-color: #f1f1f1; z-index: 2; }
+        .flip-card__back { background-color: #fff; transform: rotateY(180deg); }
+        .switch input[type="checkbox"]:checked ~ .flip-card__inner { transform: rotateY(180deg); }
+        .flip-card__input { width: 100%; margin: 10px 0; padding: 10px; }
+        .flip-card__btn { width: 100%; padding: 10px; background-color: #007BFF; color: #fff; border: none; cursor: pointer; }
+    </style>
 </head>
 <body>
-<div class="card">
-    <div class="card2">
-        <form class="form" method="POST" action=""> <!-- Tambahkan method POST -->
-            <p id="heading">Login</p>
-            <div class="field">
-                <svg viewBox="0 0 16 16" fill="currentColor" height="16" width="16" xmlns="http://www.w3.org/2000/svg" class="input-icon">
-                    <path d="M13.106 7.222c0-2.967-2.249-5.032-5.482-5.032-3.35 0-5.646 2.318-5.646 5.702 0 3.493 2.235 5.708 5.762 5.708.862 0 1.689-.123 2.304-.335v-.862c-.43.199-1.354.328-2.29.328-2.926 0-4.813-1.88-4.813-4.798 0-2.844 1.921-4.881 4.594-4.881 2.735 0 4.608 1.688 4.608 4.156 0 1.682-.554 2.769-1.416 2.769-.492 0-.772-.28-.772-.76V5.206H8.923v.834h-.11c-.266-.595-.881-.964-1.6-.964-1.4 0-2.378 1.162-2.378 2.823 0 1.737.957 2.906 2.379 2.906.8 0 1.415-.39 1.709-1.087h.11c.081.67.703 1.148 1.503 1.148 1.572 0 2.57-1.415 2.57-3.643zm-7.177.704c0-1.197.54-1.907 1.456-1.907.93 0 1.524.738 1.524 1.907S8.308 9.84 7.371 9.84c-.895 0-1.442-.725-1.442-1.914z"></path>
-                </svg>
-                <input type="text" name="username" class="input-field" placeholder="Username" autocomplete="off" required> <!-- Tambahkan name 'username' -->
-            </div>
-            <div class="field">
-                <svg viewBox="0 0 16 16" fill="currentColor" height="16" width="16" xmlns="http://www.w3.org/2000/svg" class="input-icon">
-                    <path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"></path>
-                </svg>
-                <input type="password" name="password" class="input-field" placeholder="Password" required> <!-- Tambahkan name 'password' -->
-            </div>
-            <div class="btn">
-                <button type="submit" class="button1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Login&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</button>
-                <a href="singup.php" class="button2">Sign Up</a> <!-- Ubah button menjadi tautan ke halaman signup -->
-            </div>
-            <button class="button3">Forgot Password</button>
-            <?php if (isset($error_message)): ?>
-                <p style="color: red;"><?php echo $error_message; ?></p>
-            <?php endif; ?>
-        </form>
+    <div class="wrapper">
+        <div class="card-switch">
+            <label class="switch">
+               <input class="toggle" type="checkbox">
+               <span class="slider"></span>
+               <span class="card-side"></span>
+               <div class="flip-card__inner">
+                  <!-- Login Form -->
+                  <div class="flip-card__front">
+                     <div class="title">Log in</div>
+                     <form action="" method="POST" class="flip-card__form">
+                        <input type="hidden" name="action" value="login">
+                        <input type="text" placeholder="Username" name="username" class="flip-card__input" required>
+                        <input type="password" placeholder="Password" name="password" class="flip-card__input" required>
+                        <button type="submit" class="flip-card__btn">Let`s go!</button>
+                     </form>
+                  </div>
+                  
+                  <!-- Sign-up Form -->
+                  <div class="flip-card__back">
+                     <div class="title">Sign up</div>
+                     <form action="" method="POST" class="flip-card__form">
+                        <input type="hidden" name="action" value="signup">
+                        <input type="text" placeholder="Username" name="username" class="flip-card__input" required>
+                        <input type="password" placeholder="Password" name="password" class="flip-card__input" required>
+                        <input type="text" placeholder="Alamat" name="alamat" class="flip-card__input" required>
+                        <input type="text" placeholder="Nomor Telepon" name="nomor_telepon" class="flip-card__input" required>
+                        <button type="submit" class="flip-card__btn">Confirm!</button>
+                     </form>
+                  </div>
+               </div>
+            </label>
+        </div>   
     </div>
-</div>
+
+    <?php if (isset($error_message)): ?>
+        <p style="color: red;"><?php echo $error_message; ?></p>
+    <?php endif; ?>
 </body>
 </html>

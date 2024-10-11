@@ -1,26 +1,56 @@
 <?php
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+session_start(); // Memulai sesi
+include '../koneksi.php'; // Menyertakan koneksi database
 
-// Include the database connection file
-include '../koneksi.php';
+// Pastikan pengguna sudah login
+if (!isset($_SESSION['user_id'])) {
+    echo "You must be logged in to add items.";
+    exit();
+}
 
-// Handle form submission for adding a new item
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_item'])) {
-    $deskripsi = $_POST['deskripsi'];
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    $name = $_POST['name'];
     $harga = $_POST['harga'];
+    $deskripsi = $_POST['deskripsi'];
     $lokasi = $_POST['lokasi'];
-    $image_url = $_POST['image_url'];
-    $kategori = isset($_POST['kategori']) ? $_POST['kategori'] : ''; // Check if 'kategori' exists
 
-    // Prepare and execute insert statement
-    $stmt = $conn->prepare("INSERT INTO items (deskripsi, harga, lokasi, image_url, kategori) VALUES (?, ?, ?, ?, ?)");
-    $stmt->bind_param("sssss", $deskripsi, $harga, $lokasi, $image_url, $kategori);
-    $stmt->execute();
+    // Menangani upload gambar
+    $image_url = '';
+    if (isset($_FILES['image']) && $_FILES['image']['error'] == UPLOAD_ERR_OK) {
+        $target_dir = "../uploads/"; // Folder untuk menyimpan gambar
+        $target_file = $target_dir . basename($_FILES["image"]["name"]);
+        
+        // Cek apakah file adalah gambar
+        $check = getimagesize($_FILES["image"]["tmp_name"]);
+        if ($check !== false) {
+            // Memindahkan file ke folder yang ditentukan
+            if (move_uploaded_file($_FILES["image"]["tmp_name"], $target_file)) {
+                $image_url = $target_file; // Simpan path gambar untuk database
+            } else {
+                echo "Sorry, there was an error uploading your file.";
+            }
+        } else {
+            echo "File is not an image.";
+        }
+    } else {
+        echo "No file uploaded or there was an upload error.";
+    }
+    
+    $kategori = $_POST['kategori'];
+    $user_id = $_SESSION['user_id']; // Menyimpan user_id dari sesi
+
+    // Insert item ke dalam database
+    $stmt = $conn->prepare("INSERT INTO items (name, harga, deskripsi, lokasi, image_url, kategori, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)");
+    $stmt->bind_param("ssssssi", $name, $harga, $deskripsi, $lokasi, $image_url, $kategori, $user_id);
+
+    if ($stmt->execute()) {
+        echo "Item berhasil ditambahkan!";
+    } else {
+        echo "Terjadi kesalahan saat menambahkan item: " . $conn->error;
+    }
+
     $stmt->close();
-    // Redirect back to main page after adding
-    header("Location: ../main/index.php");
-    exit;
+    $conn->close();
 }
 ?>
 
@@ -103,11 +133,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_item'])) {
 <body>
     <div class="container">
         <h1>Tambah Item</h1>
-        <form method="POST" action="">
+        <form method="POST" action="" enctype="multipart/form-data"> <!-- Menambahkan enctype -->
+            <input type="text" name="name" placeholder="Nama Item" required>
             <input type="text" name="deskripsi" placeholder="Deskripsi" required>
             <input type="text" name="harga" placeholder="Harga" required>
             <input type="text" name="lokasi" placeholder="Lokasi" required>
-            <input type="text" name="image_url" placeholder="Image URL" required>
+            
+            <!-- Input untuk upload gambar -->
+            <input type="file" name="image" accept="image/*" required> <!-- Input file untuk gambar -->
             
             <!-- Custom dropdown for category -->
             <div class="custom-select">

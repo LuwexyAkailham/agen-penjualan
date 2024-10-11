@@ -1,56 +1,46 @@
 <?php
-session_start();
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+session_start(); // Memulai sesi
 
-// Include database connection file
-include '../koneksi.php';
-
-// Check if user is logged in
+// Periksa apakah pengguna sudah login
 if (!isset($_SESSION['user_id'])) {
-    header("Location: main/login.php"); // Redirect to login page if not logged in
+    header("Location: login.php"); // Arahkan ke halaman login jika belum login
     exit();
 }
 
-// Fetch user data from the database
-$user_id = $_SESSION['user_id'];
-$stmt = $conn->prepare("SELECT * FROM users WHERE id = ?");
-$stmt->bind_param("i", $user_id);
+include '../koneksi.php'; // Menyertakan file koneksi database
+
+// Proses ketika form di-submit
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    $username = $_POST['username'];
+    $nomor_telepon = $_POST['nomor_telepon'];
+    $alamat = $_POST['alamat']; // Tambahkan alamat
+
+    // Update data pengguna di database
+    $stmt = $conn->prepare("UPDATE users SET username = ?, nomor_telepon = ?, alamat = ? WHERE id = ?");
+    $stmt->bind_param("sssi", $username, $nomor_telepon, $alamat, $_SESSION['user_id']);
+    
+    if ($stmt->execute()) {
+        // Jika berhasil, redirect ke halaman index
+        header("Location: index.php");
+        exit();
+    } else {
+        echo "Error: " . $stmt->error; // Tampilkan kesalahan jika ada
+    }
+    $stmt->close();
+}
+
+// Ambil data pengguna dari database
+$stmt = $conn->prepare("SELECT username, nomor_telepon, alamat FROM users WHERE id = ?");
+$stmt->bind_param("i", $_SESSION['user_id']);
 $stmt->execute();
 $result = $stmt->get_result();
 
-// Check if user data exists
-if ($result->num_rows === 0) {
-    echo "User not found!";
+// Cek apakah pengguna ditemukan
+if ($result->num_rows > 0) {
+    $user = $result->fetch_assoc();
+} else {
+    echo "User not found.";
     exit();
-}
-
-$user = $result->fetch_assoc();
-
-$success_message = "";
-
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $username = $_POST['username']; // Make sure this matches with input form name
-    $alamat = $_POST['alamat']; // Make sure this matches with input form name
-
-    // Update user profile in the database
-    $stmt = $conn->prepare("UPDATE users SET username = ?, alamat = ? WHERE id = ?");
-    $stmt->bind_param("ssi", $username, $alamat, $user_id);
-    $stmt->execute();
-
-    if ($stmt->affected_rows > 0) {
-        $success_message = "Profile updated successfully!";
-        // Refresh user data after the update
-        $stmt = $conn->prepare("SELECT * FROM users WHERE id = ?");
-        $stmt->bind_param("i", $user_id);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $user = $result->fetch_assoc();
-    } else {
-        $success_message = "No changes made to your profile.";
-    }
-
-    $stmt->close();
 }
 ?>
 
@@ -59,31 +49,30 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Edit Profile</title>
+    <title>Edit Profil</title>
     <link rel="stylesheet" href="styles.css"> <!-- Link to CSS file -->
 </head>
 <body>
     <div class="container">
-        <h1>Edit Profile</h1>
-        
-        <!-- Show success message after update -->
-        <?php if (!empty($success_message)): ?>
-            <div class="success-message"><?php echo $success_message; ?></div>
-        <?php endif; ?>
-        
-        <form method="POST" class="form">
-            <div class="field">
-                <label for="username">Username:</label>
-                <input type="text" id="username" name="username" value="<?php echo htmlspecialchars($user['username'] ?? ''); ?>" required>
+        <h1>Edit Profil</h1>
+        <form method="POST">
+            <div>
+                <label for="username">Nama Pengguna:</label>
+                <input type="text" name="username" id="username" value="<?php echo htmlspecialchars($user['username']); ?>" required>
             </div>
-            <div class="field">
+            <div>
+                <label for="nomor_telepon">Telepon:</label>
+                <input type="text" name="nomor_telepon" id="nomor_telepon" value="<?php echo htmlspecialchars($user['nomor_telepon']); ?>" required>
+            </div>
+            <div>
                 <label for="alamat">Alamat:</label>
-                <input type="text" id="alamat" name="alamat" value="<?php echo htmlspecialchars($user['alamat'] ?? ''); ?>" required>
+                <input type="text" name="alamat" id="alamat" value="<?php echo htmlspecialchars($user['alamat']); ?>" required> <!-- Tambahkan input untuk alamat -->
             </div>
-            <div class="form .btn">
-                <button type="submit" class="button1">Update</button>
-                <a href="../main/index.php" class="button2">Cancel</a>
-            </div>
+            <button type="submit">Simpan</button>
+            <a href="../main/index.php">Batal</a>
+        </form>
+        <form method="POST" action="../items/process_open_lapak.php">
+            <button type="submit">Buka Lapak</button>
         </form>
     </div>
 </body>

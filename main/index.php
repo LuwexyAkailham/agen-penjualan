@@ -71,6 +71,9 @@ if ($stmt) {
                 ?>
                 </p>
                 <a href="../profile/edit_profile.php"><button>Edit Profil</button></a>
+                <?php if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') { ?>
+                    <a href="../items/tambah.php"><button>Tambah Item</button></a>
+                <?php } ?>
                 <a href="logout.php"><button>Logout</button></a>
             </div>
             <h3>Kategori</h3>
@@ -90,13 +93,6 @@ if ($stmt) {
                     <span>Depok - 65 km</span>
                 </div>
             </div>
-
-            <!-- Tambahkan tombol "Tambah Item" jika user adalah admin -->
-            <?php if (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'admin') { ?>
-                <a href="../items/tambah.php" class="add-item-btn">
-                    <button class="button">Tambah Item</button>
-                </a>
-            <?php } ?>
 
             <!-- Display items -->
             <div class="row">
@@ -124,8 +120,15 @@ if ($stmt) {
                                             <button class="button" type="submit">Edit</button>
                                         </form>
                                     <?php 
-                                    } else { 
-                                        // Jika user adalah user biasa, tampilkan tombol Beli dan Chat
+                                    } elseif (isset($_SESSION['user_id']) && $_SESSION['user_id'] == $row['user_id']) { 
+                                        // Jika user adalah user biasa dan item dimiliki olehnya
+                                    ?>
+                                        <form method="GET" action="../items/edit.php" style="display:inline;">
+                                            <input type="hidden" name="item_id" value="<?php echo $row['id']; ?>">
+                                            <button class="button" type="submit">Edit</button>
+                                        </form>
+                                    <?php } else { 
+                                        // Jika user adalah user biasa dan bukan pemilik item, tampilkan tombol Beli dan Chat
                                     ?>
                                         <form method="POST" action="../items/beli.php" style="display:inline;">
                                             <input type="hidden" name="item_id" value="<?php echo $row['id']; ?>">
@@ -156,12 +159,9 @@ if ($stmt) {
     <!-- Chat Container -->
     <div class="chat-container" style="display:none;">
         <div class="chat-header">
-            <img alt="Profile picture of Lexus Pro" src="https://placehold.co/30x30"/>
+            <img alt="Profile picture" src="https://placehold.co/30x30"/>
             <div class="title">Chat</div>
-            <div class="icons">
-                <i class="fas fa-phone"></i>
-                <i class="fas fa-video"></i>
-            </div>
+            <div class="close-chat" onclick="closeChat()">&times;</div>
         </div>
         <div class="chat-body" id="chat-body">
             <!-- Chat messages will be loaded here dynamically -->
@@ -205,6 +205,11 @@ if ($stmt) {
                 loadMessages(itemId); // Load messages for the item
             };
 
+            // Close chat function
+            window.closeChat = function() {
+                $('.chat-container').hide();
+            };
+
             // Submit chat form
             $('#chat-form').submit(function(e) {
                 e.preventDefault();
@@ -212,7 +217,7 @@ if ($stmt) {
                 // Optionally, include item_id when sending a message
                 const itemId = $('#chat-body').data('itemId');
 
-                $.post('send_message.php', { message: message, item_id: itemId }, function(response) {
+                $.post('../chat/send_message.php', { message: message, item_id: itemId }, function(response) {
                     $('#message').val(''); // Clear input field after sending
                     loadMessages(itemId); // Reload messages after sending
                 });
